@@ -1,0 +1,3 @@
+länka ihop databasen och python koden.
+databasen och Google cloud SQL
+python -> react native 
