@@ -59,10 +59,9 @@ def get_user_id(user_id):
         return i["Profileid"]
 
 
-def good_exists(json):
-    grocerie = json["grocerie"] 
+def good_exists(itemid): 
     cnx,connection = connecters()
-    cnx.execute("SELECT itemname FROM Groceries WHERE itemname  in (%s)",(grocerie,))
+    cnx.execute("SELECT itemname FROM Groceries WHERE itemname  in (%s)",(itemid,))
     for row in cnx:
         if row == None:
             return False
@@ -78,14 +77,6 @@ def get_date(item_id):
     for i in id_lista:
         return i["last_shopped"]
 
-def clear_shoppinglist():
-    cnx.execute("Select itemid from shoppinglistrow")
-    lista = []
-    for id in cnx:
-        lista.append(id["itemid"])
-    for id in lista:
-        cnx.execute("DELETE FROM ShoppingListRow where itemid = (%s)",(id,))
-        connection.commit()
 
 def get_category(item_id):
     lista = []
@@ -94,7 +85,7 @@ def get_category(item_id):
         lista.append(row)
     for i in lista:
         return i["category"] 
-    
+ 
 def readd_favorites(json):
     profileid = json["profileid"]
     cnx.execute("Select itemid from favorites")
@@ -121,14 +112,18 @@ def show_storage():
     cnx,connection = connecters()
     x = cnx.execute("Select groceries.itemname, groceries.category, storage.lastshopped from groceries inner join storage where groceries.itemid = storage.itemid order by itemname")
     whole_list = cnx.fetchall()
-    return json(whole_list)
+    json_object = json.dumps(whole_list) 
+    return json_object
 
 def remove_from_storage(id):
     cnx,connection = connecters()
     cnx.execute("DELETE FROM storage where itemid = (%s)",(id,))
     
 
-
+def len_storage():
+    cnx.execute("Select * from storagerow")
+    whole_list = cnx.fetchall()
+    return len(whole_list)
 
 #### listbank funktioner #########################################################################################################
 def add_into_listbank(json):
@@ -137,9 +132,19 @@ def add_into_listbank(json):
 
 
 
-
 #### Shoppginlistan funktioner #####################################################################################################
+def exists_in_shoppinglist(food_id):
+    cnx,connection = connecters()
+    cnx.execute("SELECT itemid FROM shoppinglistrow WHERE itemid  in (%s)",(food_id,))
+    for row in cnx:
+        if row == None:
+            return False
+        else:
+            return True 
+    connection.close()
+    
 def add_to_shoppinglist(json):
+    """ Lägg till om en produkten redan finns och titta uppercase är lika med samma namn"""
     grocerie = json["itemname"]
     category = json["category"]
     user_id = json["user_id"]
@@ -148,9 +153,25 @@ def add_to_shoppinglist(json):
         cnx.execute( "Insert into Groceries (ItemName,Category) VALUES (%s,%s)",(grocerie,category))
         connection.commit()
     food_id = get_item_id(grocerie)
-    cnx.execute( "Insert into Shoppinglistrow (UserID,ItemID,duration) VALUES (%s,%s,0)",(user_id,food_id))
-    connection.commit()
+    if exists_in_shoppinglist(food_id) == None:
+        cnx.execute( "Insert into Shoppinglistrow (UserID,ItemID,duration) VALUES (%s,%s,0)",(user_id,food_id))
+        connection.commit()
     return 
+
+def clear_shoppinglist():
+    if len_shoppinglist() > 0:
+        cnx.execute("Select itemid from shoppinglistrow")
+        lista = []
+        for id in cnx:
+            lista.append(id["itemid"])
+        for id in lista:
+            cnx.execute("DELETE FROM ShoppingListRow where itemid = (%s)",(id,))
+            connection.commit()
+        
+def len_shoppinglist():
+    cnx.execute("Select * from shoppinglistrow")
+    whole_list = cnx.fetchall()
+    return len(whole_list)
 
 def end_shopping(json):
     cnx,connection = connecters()
@@ -159,19 +180,24 @@ def end_shopping(json):
     clear_shoppinglist()
     readd_favorites(json)
       
-def remove_from_shoppinglist(id):
-    cnx,connection = connecters()
-    cnx.execute("DELETE FROM ShoppingListRow where itemid = (%s)",(id,))
+def remove_from_shoppinglist(food_id):
+    if exists_in_shoppinglist(food_id) == True:
+        cnx,connection = connecters()
+        cnx.execute("DELETE FROM ShoppingListRow where itemid = (%s)",(food_id,))
 
 def show_shoppinglist():
     cnx,connection = connecters()
-    x = cnx.execute("Select groceries.itemname, groceries.category,shoppinglistrow.duration  from groceries inner join shoppinglistrow where groceries.itemid = shoppinglist.itemid order by category")
+    x = cnx.execute("Select groceries.itemname, groceries.category,shoppinglistrow.duration  from groceries inner join shoppinglistrow where groceries.itemid = shoppinglistrow.itemid order by category")
     whole_list = cnx.fetchall()
-    return json(whole_list)
+    json_object = json.dumps(whole_list) 
+    return print(json_object)
+
+
 
 def updates():
     cnx,connection = connecters()
-    cnx.execute("Update shoppinglistrow inner join storagerow set shoppinglistrow.duration = datediff(curdate(),last_shopped) where shoppinglistrow.itemid = storagerow.itemid")
+    if len_shoppinglist() > 0:
+        cnx.execute("Update shoppinglistrow inner join storagerow set shoppinglistrow.duration = datediff(curdate(),last_shopped) where shoppinglistrow.itemid = storagerow.itemid")
     connection.commit()
 
     
@@ -188,7 +214,11 @@ def show_favorites():
     cnx,connection = connecters()
     x = cnx.execute("Select groceries.itemname, groceries.category from groceries inner join favorites where groceries.itemid = favorites.itemid order by category")
     whole_list = cnx.fetchall()
-    return json(whole_list)
+    json_object = json.dumps(whole_list) 
+    return json_object
+
+
+    
     
 def add_favorites(json):
     grocerie = json["itemname"]
@@ -204,7 +234,10 @@ def add_favorites(json):
     connection.commit()
     return     
     
-
+def len_favorite():
+    cnx.execute("Select * from favorite")
+    whole_list = cnx.fetchall()
+    return len(whole_list)
 
 #### Recipe funktioner#############################################################################################################################
 def add_recipe(json):
@@ -212,13 +245,11 @@ def add_recipe(json):
     url = json["url"]
     return
 
-
-
-    
-# show_shoppinglist()
+show_shoppinglist()
 # print(get_item_id([1]))
 # print(add_favorites("Saffran","bakelse",2))
 # print(get_item_id("Mjölk"))
 # print(good_exists("saffran"))
-# item_ids = list(map(int, Groceries['items'].strip('[]').split(',')))
+# # item_ids = list(map(int, Groceries['items'].strip('[]').split(',')))
 # print(item_ids)
+
